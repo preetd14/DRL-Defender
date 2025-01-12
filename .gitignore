@@ -1,0 +1,16 @@
+# Ignore Python bytecode files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore checkpoint files (adjust as needed)
+checkpointed_models/
+trained_models/
+sample_paths/
+
+# Ignore log files (adjust as needed)
+runs/
+
+# Ignore Git-related files
+.git/
