@@ -1,3 +1,5 @@
+# This code is derived from the RanSMAP paper: https://www.sciencedirect.com/science/article/pii/S0167404824005078?ref=pdf_download&fr=RR-2&rr=900f8853d9ad058b
+
 import numpy as np
 
 def calculate_storage_feature(df_read_t, df_write_t, T_window=1e8):

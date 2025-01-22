@@ -1,6 +1,9 @@
 import os
 import yaml
 
+# ToDo: We can expand this class by adding more scenarios for finer-grained control on 
+# the samples we use to train/evaluate the DQN agent.
+# For example, we can add scenarios for split between malware and benign traces
 class Scenario:
     """
     Generates and saves sample paths for different scenarios.
