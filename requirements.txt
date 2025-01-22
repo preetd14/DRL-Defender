@@ -2,3 +2,6 @@ torch
 numpy
 pandas
 pyyaml
+seaborn
+matplotlib
+scikit-learn
