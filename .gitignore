@@ -8,6 +8,7 @@ __pycache__/
 checkpointed_models/
 trained_models/
 sample_paths/
+results/
 
 # Ignore log files (adjust as needed)
 runs/
