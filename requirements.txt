@@ -5,3 +5,4 @@ pyyaml
 seaborn
 matplotlib
 scikit-learn
+pickle5

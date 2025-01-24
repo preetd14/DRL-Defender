@@ -23,11 +23,12 @@ The project's codebase is structured as follows:
 * **`scenario.py`:** Defines the training/evaluation scenarios and manages the interaction between the agent and the environment.
 * **`state_computation.py`:**  Contains functions to calculate the state representation from raw system traces.
 * **`results.py`:** Provides functions to compute and visualize evaluation metrics.
+* **`recompute.py`:** Provides functions to re-compute and visualize evaluation metrics stored on disk.
 
 ## Installation and Usage
 
 1. **Clone the repository:**  `git clone <repository_url>`
-2. **Install dependencies:**  Ensure you have the required Python packages installed (e.g., PyTorch, NumPy, Pandas, Scikit-learn, Matplotlib, Seaborn, YAML. (More information in [Requirements](#requirements)).
+2. **Install dependencies:**  Ensure you have the required Python packages installed (e.g., PyTorch, NumPy, Pandas, Scikit-learn, Matplotlib, Seaborn, YAML. (More information in [Requirements](#requirements))).
 3. **Prepare datasets:** Organize your training and evaluation datasets according to the expected format (More information in section [Dataset](#dataset)).
 4. **Run training:**  Use `main.py` with appropriate arguments to train the DRL agent. Example: `python main.py --mode Training` (More information in [Training mode](#training-mode)).
 5. **Run evaluation:**  After training, evaluate the agent's performance using: `python main.py --mode Evaluation` (More information in [Evaluation mode](#evaluation-mode)).

@@ -295,13 +295,13 @@ class Agent:
         self.last_episode = 0
         self.beta = beta
         self.curr_engagement_length = 0
-        self.goal_completion = []
         # Initialize lists to store results for metric calculation
         self.y_true = []
         self.y_pred = []
         self.episode_rewards = []
-        self.malicious_rewards = []
-        self.benign_rewards = []
+        self.goal_completion = []
+        self.loss = []
+        self.mean_v = []
     
     # DataFrame loading with timestamp calculation and column names
     def load_data(self, file_prefix):
@@ -363,11 +363,10 @@ class Agent:
         Returns:
             int: The selected action (0 or 1).
         """
-        if random.random() > epsilon:
+        if random.random() > epsilon: # Exploit: use the model to make the decision
             state = torch.tensor(state, dtype=torch.float32).to(self.device)
             state = state.unsqueeze(0)  # Add batch dimension
-            # print(f"s_batch shape BEFORE DQN: {state.shape}")  # Add this print statement
-            self.dqn.eval()
+            self.dqn.eval() # We need to set the model to eval mode so that batch normalization does not look for multiple batches
             with torch.no_grad():
                 q_values = self.dqn(state) # Note: We do not need to call the forward function because PyTorch takes care of it inherently
             self.dqn.train()
@@ -528,7 +527,7 @@ class Agent:
             max_episode_return = 0
             self.curr_engagement_length = 0
             steps_done = 0
-            max_steps = t_d / T_window
+            max_steps = (t_d - t) / T_window
 
             while t <= (t_d - T_window) and not done:
                 state = compute_state(df_ata_read, df_ata_write, df_mem_read,
@@ -581,25 +580,26 @@ class Agent:
                 self.y_true.append(int(is_malicious))
                 self.y_pred.append(action)
 
+                # Track the loss and mean V values during training
+                self.loss.append((self.steps_done, loss))
+                self.mean_v.append((self.steps_done, mean_v))
+
             completion_point = steps_done / max_steps
             
             self.goal_completion.append((done, completion_point, is_malicious))
+
+            self.episode_rewards.append((episode + 1, max_episode_return, is_malicious))
             
             if (episode + 1) % checkpoint_freq == 0:  # Check if it's time to save a checkpoint
                 checkpoint_path = os.path.join(checkpoint_dir, f"checkpoint_{episode + 1}_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}.pth")
                 self.save_checkpoint(checkpoint_path, episode)
                 print(f"Checkpoint saved at episode {episode + 1} to {checkpoint_path}")
 
-            # ToDo: Add another metric tracker for final rewards at each episode where the agent reached the goal of continuous engagement
-            # and divide it by the number of steps taken to reach that goal, the longer it took, the lesser this reward would be.
             self.writer.add_scalar("Training Reward", max_episode_return, episode)  # Log all episode rewards
-            self.episode_rewards.append((episode + 1, max_episode_return))
             if is_malicious:
                 self.writer.add_scalar("Training Reward (malware samples)", max_episode_return, episode)  # Log rewards for malware samples
-                self.malicious_rewards.append((episode + 1, max_episode_return))
             if not is_malicious:
                 self.writer.add_scalar("Training Reward (benign samples)", max_episode_return, episode)  # Log reward for benign samples
-                self.benign_rewards.append((episode + 1, max_episode_return))
 
             print(f"Training Episode {episode + 1}: malware={is_malicious}, return={max_episode_return}, steps={self.steps_done}, epsilon={epsilon}, goal reached={done}")
 
@@ -650,7 +650,7 @@ class Agent:
             max_episode_return = 0
             self.curr_engagement_length = 0
             steps_done = 0
-            max_steps = t_d / T_window
+            max_steps = (t_d - t) / T_window
 
             while t <= (t_d - T_window) and not done:
                 state = compute_state(df_ata_read, df_ata_write, df_mem_read,
@@ -697,14 +697,13 @@ class Agent:
             
             self.goal_completion.append((done, completion_point, is_malicious))
 
+            self.episode_rewards.append((episode + 1, max_episode_return, is_malicious))
+
             self.writer.add_scalar("Evaluation Reward", max_episode_return, episode)  # Log all episode rewards
-            self.episode_rewards.append((episode + 1, max_episode_return))
             if is_malicious:
                 self.writer.add_scalar("Evaluation Reward (malware samples)", max_episode_return, episode)  # Log rewards for malware samples
-                self.malicious_rewards.append((episode + 1, max_episode_return))
             if not is_malicious:
                 self.writer.add_scalar("Evaluation Reward (benign samples)", max_episode_return, episode)  # Log reward for benign samples
-                self.benign_rewards.append((episode + 1, max_episode_return))
 
             print(f"Evaluation Episode {episode + 1}: malware={is_malicious}, return={max_episode_return}, steps={self.steps_done}, goal reached={done}")
 

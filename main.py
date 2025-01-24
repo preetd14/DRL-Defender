@@ -66,9 +66,8 @@ def main(args):
 
         # Compute and save evaluation results
         feature_importance = agent.dqn.get_feature_importance()
-        compute_results(agent.y_true, agent.y_pred, agent.episode_rewards, 
-                        agent.malicious_rewards, agent.benign_rewards, agent.goal_completion, 
-                        feature_importance, args.mode, args.results_dir)
+        compute_results(agent.y_true, agent.y_pred, agent.episode_rewards, agent.goal_completion, 
+                        agent.loss, agent.mean_v, feature_importance, args.mode, args.results_dir, save=True)
         print(f"Results computed and saved in {args.results_dir}")
 
     elif args.mode == "Evaluation":
@@ -100,10 +99,8 @@ def main(args):
         print(f"Evaluation complete!")
 
         # Compute and save evaluation results
-        feature_importance = agent.dqn.get_feature_importance()
-        compute_results(agent.y_true, agent.y_pred, agent.episode_rewards, 
-                        agent.malicious_rewards, agent.benign_rewards, agent.goal_completion, 
-                        feature_importance, args.mode, args.results_dir)
+        compute_results(agent.y_true, agent.y_pred, agent.episode_rewards, agent.goal_completion, 
+                        agent.loss, agent.mean_v, [], args.mode, args.results_dir, save=True)
         print(f"Results computed and saved in {args.results_dir}")
 
     else:
@@ -135,7 +132,7 @@ if __name__ == "__main__":
     # DQN parameters
     parser.add_argument("--hidden_sizes", type=int, nargs="*", default=[128, 128, 128], help="Number of layers and number of neurons per layer (default=[128, 64])")
     parser.add_argument("--lr", type=float, default=1, help="Learning rate (default=1)")
-    parser.add_argument("--gamma", type=float, default=0.8, help="Discount factor, reward + gamma should be [0,1] to keep stability (default=0.8)")
+    parser.add_argument("--gamma", type=float, default=0.99, help="Discount factor, reward + gamma should be [0,1] to keep stability (default=0.99)")
     parser.add_argument("--target_update_freq", type=int, default=2000, help="Update frequency of the target DQN (default=2000)")
     parser.add_argument("--eval_epsilon", type=float, default=0.05, help="Evaluation epsilon value (default=0.05)")
     parser.add_argument("--beta", type=float, default=0.01, help="Decay rate for reward (default=0.01)")
