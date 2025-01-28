@@ -41,7 +41,7 @@ def main(args):
         # Prepare training data paths, generating them if necessary
         training_yaml_path = os.path.join(args.sample_paths_dir, args.training_paths_name)
         if not os.path.exists(training_yaml_path):
-            training_scenario = Scenario("train", args.train_path)
+            training_scenario = Scenario(args.scenario, args.train_path, args.mode, args.split_ratio)
             training_scenario.generate_paths()
             training_scenario.save_to_yaml(training_yaml_path)
 
@@ -79,7 +79,7 @@ def main(args):
         # Prepare evaluation data paths, generating them if necessary
         evaluation_yaml_path = os.path.join(args.sample_paths_dir, args.evaluation_paths_name)
         if not os.path.exists(evaluation_yaml_path):
-            evaluation_scenario = Scenario("eval", args.eval_path)
+            evaluation_scenario = Scenario(args.scenario, args.eval_path, args.mode, args.split_ratio)
             evaluation_scenario.generate_paths()
             evaluation_scenario.save_to_yaml(evaluation_yaml_path)
 
@@ -113,6 +113,8 @@ if __name__ == "__main__":
 
     # Mode of operation
     parser.add_argument("--mode", type=str, choices=["Training", "Evaluation"], help="Mode of operation: Training or Evaluation")
+    parser.add_argument("--scenario", type=str, choices=["split", "whole"], default="whole", help="Scenario of operation: split or whole (default: whole)")
+    parser.add_argument("--split_ratio", type=float, default=0.75, help="Split ratio for training/evaluation dataset if scenario is split (default=0.75)")
 
     # Data and paths
     parser.add_argument("--train_path", type=str, default="/home/preet_derasari/Journal/datasets/RanSMAP/dataset/original", help="Path to training samples (default: /home/preet_derasari/Journal/datasets/RanSMAP/dataset/original)")

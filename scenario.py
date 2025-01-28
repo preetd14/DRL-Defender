@@ -1,29 +1,28 @@
 import os
 import yaml
+import numpy as np
+# import random
 
-# ToDo: We can expand this class by adding more scenarios for finer-grained control on 
-# the samples we use to train/evaluate the DQN agent.
-# For example, we can add scenarios for split between malware and benign traces
 class Scenario:
     """
     Generates and saves sample paths for different scenarios.
-
-    Attributes:
-        name (str): Name of the scenario (e.g., "train", "eval").
-        root_dir (str): Root directory containing the samples.
-        sample_paths (list): List to store the generated sample paths.
     """
-    def __init__(self, name, root_dir):
+
+    def __init__(self, name, root_dir, mode, split_ratio=0.75):
         """
         Initializes the Scenario object.
 
         Args:
             name (str): Name of the scenario.
             root_dir (str): Root directory of the samples.
+            split_ratio (float): Ratio of samples to use for training (default 0.75).
+            mode (str): Mode of operation ('Training' or 'Evaluation').
         """
         self.name = name
         self.root_dir = root_dir
         self.sample_paths = []
+        self.mode = mode
+        self.split_ratio = split_ratio
 
     def generate_paths(self):
         """
@@ -49,6 +48,34 @@ class Scenario:
                                         is_malicious = app_type in ("WannaCry", "Ryuk", "REvil", "LockBit", "Darkside", "Conti")
                                         self.sample_paths.append((ata_path, mem_path, is_malicious))
 
+    def split_paths(self):
+        """
+        Splits the sample paths into training and evaluation sets based on the mode.
+
+        Shuffles and splits the sample paths based on the specified split ratio and mode.
+        Ensures a balanced split of malicious and benign samples.
+
+        Returns:
+            list: The training or evaluation sample paths based on the mode.
+        """
+        # Shuffle the sample paths to randomize the split
+        # random.shuffle(self.sample_paths)
+
+        # Separate malicious and benign samples
+        malicious_samples = [sample for sample in self.sample_paths if sample[2]]
+        benign_samples = [sample for sample in self.sample_paths if not sample[2]]
+
+        # Calculate the split index for each type of sample
+        split_index_malicious = int(len(malicious_samples) * self.split_ratio)
+        split_index_benign = int(len(benign_samples) * self.split_ratio)
+
+        if self.mode == "Training":
+            # Split and combine malicious and benign samples for training
+            return malicious_samples[:split_index_malicious] + benign_samples[:split_index_benign]
+        elif self.mode == "Evaluation":
+            # Split and combine malicious and benign samples for evaluation
+            return malicious_samples[split_index_malicious:] + benign_samples[split_index_benign:]
+
     def save_to_yaml(self, file_path):
         """
         Saves the generated sample paths to a YAML file.
@@ -58,7 +85,11 @@ class Scenario:
         Args:
             file_path (str): Path to the YAML file.
         """
+        if self.name == "split":
+            sample_paths = self.split_paths()
+        elif self.name == "whole":
+            sample_paths = self.sample_paths
         # Convert tuples to lists for YAML compatibility
-        sample_paths_as_lists = [[*t] for t in self.sample_paths]  
+        sample_paths_as_lists = [[*t] for t in sample_paths]
         with open(file_path, 'w') as f:
-            yaml.dump(sample_paths_as_lists, f)  # Dump as list of lists
+            yaml.dump(sample_paths_as_lists, f)
