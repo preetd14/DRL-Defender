@@ -40,41 +40,23 @@ class Scenario:
                         for app_type in os.listdir(memory_path):
                             app_path = os.path.join(memory_path, app_type)
                             if os.path.isdir(app_path):
+                                # Collect all samples for this category
+                                category_samples = []
                                 for sample_dir in os.listdir(app_path):
                                     sample_path = os.path.join(app_path, sample_dir)
                                     if os.path.isdir(sample_path):
                                         ata_path = os.path.join(sample_path, "ata")
                                         mem_path = os.path.join(sample_path, "mem")
                                         is_malicious = app_type in ("WannaCry", "Ryuk", "REvil", "LockBit", "Darkside", "Conti")
-                                        self.sample_paths.append((ata_path, mem_path, is_malicious))
-
-    def split_paths(self):
-        """
-        Splits the sample paths into training and evaluation sets based on the mode.
-
-        Shuffles and splits the sample paths based on the specified split ratio and mode.
-        Ensures a balanced split of malicious and benign samples.
-
-        Returns:
-            list: The training or evaluation sample paths based on the mode.
-        """
-        # Shuffle the sample paths to randomize the split
-        # random.shuffle(self.sample_paths)
-
-        # Separate malicious and benign samples
-        malicious_samples = [sample for sample in self.sample_paths if sample[2]]
-        benign_samples = [sample for sample in self.sample_paths if not sample[2]]
-
-        # Calculate the split index for each type of sample
-        split_index_malicious = int(len(malicious_samples) * self.split_ratio)
-        split_index_benign = int(len(benign_samples) * self.split_ratio)
-
-        if self.mode == "Training":
-            # Split and combine malicious and benign samples for training
-            return malicious_samples[:split_index_malicious] + benign_samples[:split_index_benign]
-        elif self.mode == "Evaluation":
-            # Split and combine malicious and benign samples for evaluation
-            return malicious_samples[split_index_malicious:] + benign_samples[split_index_benign:]
+                                        category_samples.append((ata_path, mem_path, is_malicious))
+                                if self.name == "split":
+                                    split_index = int(len(category_samples) * self.split_ratio)
+                                    if self.mode == "Training":
+                                        self.sample_paths.extend(category_samples[:split_index])
+                                    elif self.mode == "Evaluation":
+                                        self.sample_paths.extend(category_samples[split_index:])
+                                elif self.name == "whole":
+                                    self.sample_paths.extend(category_samples)
 
     def save_to_yaml(self, file_path):
         """
@@ -85,11 +67,7 @@ class Scenario:
         Args:
             file_path (str): Path to the YAML file.
         """
-        if self.name == "split":
-            sample_paths = self.split_paths()
-        elif self.name == "whole":
-            sample_paths = self.sample_paths
         # Convert tuples to lists for YAML compatibility
-        sample_paths_as_lists = [[*t] for t in sample_paths]
+        sample_paths_as_lists = [[*t] for t in self.sample_paths]
         with open(file_path, 'w') as f:
             yaml.dump(sample_paths_as_lists, f)

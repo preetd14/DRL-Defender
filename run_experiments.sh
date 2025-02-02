@@ -15,7 +15,7 @@ experiment_count=1
 
 # Extra command line options for scenarios
 scenario="split" # "split" will split the samples from train/eval directory based on split ratio, while "whole" will use all the samples in the specified train/eval directories
-split_ratio=0.75
+split_ratio=0.7 # 70% of the samples will be used for training and 30% for evaluation
 train_path="/home/preet_derasari/Journal/datasets/RanSMAP/dataset/original"
 eval_path="/home/preet_derasari/Journal/datasets/RanSMAP/dataset/original" # same as training since we are splitting the training dataset
 
