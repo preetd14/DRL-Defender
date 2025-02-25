@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, confusion_matrix, precision_recall_curve, roc_curve # type: ignore
 import pickle
+import math
 
 def save_data(data, filename):
     """
@@ -20,10 +21,19 @@ def save_data(data, filename):
 # Smoothen the data using exponential moving average. Alpha 0.999 means maximum smoothing. Derived from TensorBoard
 def smooth_data(data, alpha=0.999):
     smoothed_data = []
-    ema = data[0][1]  # Initialize EMA with the first data point
+    # last = data[0][1]  # Initialize EMA with the first data point
+    last = 0
+    num_acc = 0
     for ep, reward in data:
-        ema = alpha * ema + (1 - alpha) * reward
-        smoothed_data.append((ep, ema))
+        smoothed_val = alpha * last + (1 - alpha) * reward
+        last = smoothed_val
+        num_acc += 1
+        # de-bias
+        debias_weight = 1
+        if alpha != 1:
+            debias_weight = 1 - math.pow(alpha, num_acc)
+        smoothed_val = last / debias_weight
+        smoothed_data.append((ep, smoothed_val))
     return smoothed_data
 
 def compute_results(y_true, y_pred, episode_rewards, goal_completion, loss, mean_v, feature_importance, mode, results_dir, save=True):
