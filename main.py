@@ -29,7 +29,7 @@ def main(args):
                    init_epsilon=args.init_epsilon, final_epsilon=args.final_epsilon, exploration_steps=args.exploration_steps,
                    target_update_freq=args.target_update_freq, hidden_sizes=args.hidden_sizes,
                    log_dir=args.log_dir, duplicate_check=args.duplicate_check, distance_threshold=args.distance_threshold, 
-                   beta=args.beta, rho=args.rho, eps=args.eps)
+                   beta=args.beta, rho=args.rho, eps=args.eps, sampling_type=args.sampling_type)
 
     # Create necessary directories for checkpoints, sample paths, trained models, and results
     os.makedirs(args.checkpoint_dir, exist_ok=True)
@@ -53,7 +53,7 @@ def main(args):
         # Train the agent
         num_train_episodes = len(train_paths)
         agent.train(train_paths, num_train_episodes, args.base_reward, args.cost, max_engagement_length=args.max_engagement_length, 
-                    T_d=args.T_d, T_window=args.T_window, checkpoint_freq=args.checkpoint_freq, checkpoint_dir=args.checkpoint_dir)
+                    T_max=args.T_max, T_window=args.T_window, checkpoint_freq=args.checkpoint_freq, checkpoint_dir=args.checkpoint_dir)
         print(f"Training complete!")
 
         # Save the trained model
@@ -95,7 +95,7 @@ def main(args):
         num_eval_episodes = len(eval_paths)
         eval_epsilon = args.eval_epsilon
         agent.evaluate(eval_paths, num_eval_episodes, args.base_reward, args.cost, max_engagement_length=args.max_engagement_length, 
-                       eval_epsilon=eval_epsilon, T_d=args.T_d, T_window=args.T_window)
+                       eval_epsilon=eval_epsilon, T_max=args.T_max, T_window=args.T_window)
         print(f"Evaluation complete!")
 
         # Compute and save evaluation results
@@ -147,6 +147,7 @@ if __name__ == "__main__":
     parser.add_argument("--distance_threshold", type=int, default=0.01, help="The euclidean distance value to use for checking duplicate states (default: 0.01)")
     parser.add_argument("--replay_size", type=int, default=50000, help="Replay buffer size (default=50000)")
     parser.add_argument("--batch_size", type=int, default=64, help="Batch size (default=64)")
+    parser.add_argument("--sampling_type", type=str, choices=["uniform", "priority"], default="uniform", help="How the experiences will be sampled, uniform distribution or recent priority (default: uniform)")
 
     # Eploration-exploitation parameters
     parser.add_argument("--init_epsilon", type=float, default=1.0, help="Initial epsilon value (default=1.0)")
@@ -158,8 +159,8 @@ if __name__ == "__main__":
     parser.add_argument("--base_reward", type=float, default=0.1, help="Base reward, reward + gamma should be [0,1] to keep stability (default=0.1)")
     parser.add_argument("--cost", type=int, nargs="*", default=[1, 2], help="Cost list of each action (default=[1, 2])")
 
-    # Parameters for adjusting the number of steps per episode (based on per-trace number of time windows = T_d / T_window)
-    parser.add_argument("--T_d", type=int, default=30e9, help="Number seconds from the first timestamp (default=30e9 i.e., 30 seconds)")
+    # Parameters for adjusting the number of steps per episode (based on per-trace number of time windows = T_max / T_window)
+    parser.add_argument("--T_max", type=int, default=30e9, help="Number seconds from the first timestamp (default=30e9 i.e., 30 seconds)")
     parser.add_argument("--T_window", type=int, default=1e8, help="Size of the time window (default=1e8 i.e., 0.1 seconds)")
     
     # ToDo: Figure out why and how to use it

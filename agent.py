@@ -101,7 +101,7 @@ class ReplayMemory:
 
     def sample_batch(self, batch_size):
         """
-        Samples a batch of experiences from the replay memory.
+        Samples a batch of experiences from the replay memory for uniform sampling.
 
         Args:
             batch_size (int): Number of experiences to sample.
@@ -116,6 +116,34 @@ class ReplayMemory:
             self.next_s_buf[sample_idxs],
             self.r_buf[sample_idxs],
             self.done_buf[sample_idxs]
+        ]
+        return [torch.from_numpy(buf).to(self.device) for buf in batch]
+    
+    def priority_batch(self, batch_size):
+        """
+        Fetches the most recent batch of experiences from the replay memory for priority sampling.
+
+        Args:
+            batch_size (int): Number of experiences to fetch.
+
+        Returns:
+            list: A list of tensors representing the batch of experiences.
+                  Returns None if batch_size exceeds the current buffer size.
+        """
+        end_idx = self.ptr  # The "pointer" indicates the *next* location to write
+        start_idx = (end_idx - batch_size) % self.capacity # Calculate start index, handling wrap-around
+
+        idxs = []
+        for i in range(batch_size):
+            idx = (start_idx + i) % self.capacity
+            idxs.append(idx)
+
+        batch = [
+            self.s_buf[idxs],
+            self.a_buf[idxs],
+            self.next_s_buf[idxs],
+            self.r_buf[idxs],
+            self.done_buf[idxs]
         ]
         return [torch.from_numpy(buf).to(self.device) for buf in batch]
 
@@ -250,7 +278,7 @@ class Agent:
                  batch_size=64, replay_size=50000, init_epsilon=1.0, final_epsilon=0.05,
                  exploration_steps=60000, target_update_freq=2000, hidden_sizes=[128, 128, 128], 
                  log_dir="runs", duplicate_check="distance", distance_threshold=0.01,
-                 beta=0.01, rho=0.95, eps=1e-6):
+                 beta=0.01, rho=0.95, eps=1e-6, sampling_type="uniform"):
         """
         Initializes the Agent.
 
@@ -272,6 +300,7 @@ class Agent:
             beta (float): Decay rate for reward based on engagement length. Default: 0.01.
             rho (float): Smoothing constant for Adadelta optimizer. Default: 0.95.
             eps (float): Small value added to denominator for numerical stability in Adadelta. Default: 1e-6.
+            sampling_type (str): Type of sampling to use for replay memory ('uniform' or 'priority'). Default: 'uniform'.
         """
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.num_actions = num_actions
@@ -282,6 +311,7 @@ class Agent:
         self.optimizer = optim.Adadelta(self.dqn.parameters(), lr=lr, rho=rho, eps=eps)
         self.gamma = gamma
         self.batch_size = batch_size
+        self.sampling_type = sampling_type
         self.replay = ReplayMemory(replay_size, (state_dim,), self.device, duplicate_check, distance_threshold)
         self.exploration_steps = exploration_steps
         self.init_epsilon = init_epsilon
@@ -421,8 +451,13 @@ class Agent:
         """
         if self.replay.size < self.batch_size:
             return 0, 0  # Not enough samples for a batch
-
-        s_batch, a_batch, next_s_batch, r_batch, d_batch = self.replay.sample_batch(self.batch_size)
+        
+        if self.sampling_type == "uniform":
+            s_batch, a_batch, next_s_batch, r_batch, d_batch = self.replay.sample_batch(self.batch_size)
+        elif self.sampling_type == "priority":
+            s_batch, a_batch, next_s_batch, r_batch, d_batch = self.replay.priority_batch(self.batch_size)
+        else:
+            raise ValueError("Invalid sampling type. Please choose 'uniform' or 'priority'.")
 
         # # **RESHAPE s_batch and next_s_batch HERE** (only for the advanced CNN + LSTM approach)
         # s_batch = s_batch.unsqueeze(1)       # Add temporal dimension for Conv1d and LSTM
@@ -456,7 +491,7 @@ class Agent:
 
         return loss.item(), mean_v
 
-    def train(self, train_paths, num_episodes, base_reward, cost, max_engagement_length=30, T_d=30e9, T_window=1e8, checkpoint_freq=100, checkpoint_dir="checkpointed_models"):
+    def train(self, train_paths, num_episodes, base_reward, cost, max_engagement_length=30, T_max=30e9, T_window=1e8, checkpoint_freq=100, checkpoint_dir="checkpointed_models"):
         """
         Trains the DQN agent.
 
@@ -469,7 +504,7 @@ class Agent:
             base_reward (float): Base reward value.
             cost (list): List of costs for each action.
             max_engagement_length (int): Maximum consecutive steps with positive reward to consider a goal reached.
-            T_d (float): Time duration for an episode in nanoseconds.
+            T_max (float): Time duration for an episode in nanoseconds.
             T_window (float): Time window size in nanoseconds.
             checkpoint_freq (int): Save checkpoint every `checkpoint_freq` episodes.
             checkpoint_dir (str): Directory to save checkpoints.
@@ -521,15 +556,15 @@ class Agent:
                         df_mem_read['ts'].max(), df_mem_write['ts'].max(), 
                         df_mem_readwrite['ts'].max(), df_mem_exec['ts'].max())
             
-            t_d = t + T_d if (t + T_d) < t_max else t_max
+            t_max = t + T_max if (t + T_max) < t_max else t_max
             done = False
             episode_return = 0
             max_episode_return = 0
             self.curr_engagement_length = 0
             steps_done = 0
-            max_steps = (t_d - t) / T_window
+            max_steps = (t_max - t) / T_window
 
-            while t <= (t_d - T_window) and not done:
+            while t <= (t_max - T_window) and not done:
                 state = compute_state(df_ata_read, df_ata_write, df_mem_read,
                                      df_mem_write, df_mem_readwrite, df_mem_exec, t, T_window)
                 
@@ -603,7 +638,7 @@ class Agent:
 
             print(f"Training Episode {episode + 1}: malware={is_malicious}, return={max_episode_return}, steps={self.steps_done}, epsilon={epsilon}, goal reached={done}")
 
-    def evaluate(self, eval_paths, num_episodes, base_reward, cost, max_engagement_length=30, eval_epsilon=0.05, T_d=30e9, T_window=1e8):
+    def evaluate(self, eval_paths, num_episodes, base_reward, cost, max_engagement_length=30, eval_epsilon=0.05, T_max=30e9, T_window=1e8):
         """
         Evaluates the trained DQN agent.
 
@@ -617,7 +652,7 @@ class Agent:
             cost (list): List of costs for each action.
             max_engagement_length (int): Maximum consecutive steps with positive reward to consider a goal reached.
             eval_epsilon (float): Epsilon value for action selection during evaluation.
-            T_d (float): Time duration for an episode in nanoseconds.
+            T_max (float): Time duration for an episode in nanoseconds.
             T_window (float): Time window size in nanoseconds.
         """
 
@@ -644,15 +679,15 @@ class Agent:
                         df_mem_read['ts'].max(), df_mem_write['ts'].max(), 
                         df_mem_readwrite['ts'].max(), df_mem_exec['ts'].max())
             
-            t_d = t + T_d if (t + T_d) < t_max else t_max
+            t_max = t + T_max if (t + T_max) < t_max else t_max
             done = False
             episode_return = 0
             max_episode_return = 0
             self.curr_engagement_length = 0
             steps_done = 0
-            max_steps = (t_d - t) / T_window
+            max_steps = (t_max - t) / T_window
 
-            while t <= (t_d - T_window) and not done:
+            while t <= (t_max - T_window) and not done:
                 state = compute_state(df_ata_read, df_ata_write, df_mem_read,
                                      df_mem_write, df_mem_readwrite, df_mem_exec, t, T_window)
                 
